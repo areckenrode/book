@@ -48,7 +48,7 @@ df_books <- data.frame(
 )
 
 library(janitor)
-goodreads_library_export <- read_csv("C:/Users/aeckenrode/IDEA/~book/raw data/goodreads_library_export.csv")
+goodreads_library_export <- read_csv("C:/Users/aeckenrode/IDEA/book/raw data/goodreads_library_export.csv")
 soup <- goodreads_library_export |> 
   clean_names() |> 
   select(name = title, author, date = date_read, pages = number_of_pages, year_published = original_publication_year) |> 
@@ -128,7 +128,7 @@ ggsave(filename = "charts/timeline.png",
        dpi = "retina",
        limitsize = FALSE)
 
-knitr::include_graphics("timeline.png")
+knitr::include_graphics("charts/timeline.png")
 
 # Convert to interactive plotly object
 #plotly::ggplotly(x, tooltip = "text") |> layout(hoverlabel=list(bgcolor="white"))
@@ -226,7 +226,36 @@ ggsave(filename = "charts/ages.png",
   
 ```
 
+```{r pages year bar chart}
+#| echo: false
+soup <- df_books3 |> 
+  mutate(year = as.character(year(date))) |> 
+  group_by(year) |> 
+  mutate(total_pages = sum(pages),
+         label = str_c(scales::label_comma()(total_pages), " pgs")) |> 
+  distinct(year, total_pages, label)
 
+c <- ggplot(soup, aes(total_pages, factor(year))) +
+  geom_col(aes(fill = factor(year))) +  
+  geom_text(aes(label = label, color = factor(year)), hjust = -0.1) +
+  scale_fill_manual(values = c("#DD7596", "#CF1259")) +
+  scale_color_manual(values = c("#DD7596","#CF1259")) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
+  theme_void()+
+  theme(
+    legend.position = "none",
+    axis.text.y = element_text(color = "#404E5C"),
+    text = element_text(size = 20)) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1)
+
+
+ggsave(filename = "charts/pagesyear.png",
+       plot = c,
+       width = 6,
+       height = 4,
+       dpi = "retina",
+       limitsize = FALSE)
+```
 
 ```{r rating freq chart}
 #| echo: false
@@ -251,6 +280,7 @@ ggsave(filename = "charts/freq.png",
        dpi = "retina",
        limitsize = FALSE)
 
+
 ```
 
 <!-- SET OF COLUMNS -->
@@ -261,96 +291,22 @@ ggsave(filename = "charts/freq.png",
 `r knitr::include_graphics("charts/pages.png")`
 :::
 
-::: {.column width="10%"}
+::: {.column width="5%"}
 <!-- empty column to create gap -->
 :::
 
-::: {.column width="25%"}
-<br>
-<center>`r fa(name = "book-open-reader", fill = "#CF1259", height = "4em")`<br>
-<span style="color: #CF1259;font-size: 200%;">`r label_comma()(total_pages_this_year)`</span><br>
-<span style="color: #CF1259;font-size: 115%;">Pages Read <i>(`r this_year`)</i></span></center>
+::: {.column width="30%"}
+
+`r knitr::include_graphics("charts/pagesyear.png")`
+<!-- <br>-->
+<!-- <center>`r fa(name = "book-open-reader", fill = "#CF1259", height = "4em")`<br>-->
+<!-- <span style="color: #CF1259;font-size: 200%;">`r label_comma()(total_pages_this_year)`</span><br>-->
+<!-- <span style="color: #CF1259;font-size: 115%;">Pages Read <i>(`r this_year`)</i></span></center>-->
 :::
 
 ::::
 
-```{r author count bar chart}
-#| echo: false
-
-w <- ggplot(df_books3, aes(x = reorder(author, table(author)[author]))) + 
-  geom_bar(aes(fill = after_stat(count == 1)), stat = "count") +
-  coord_flip() +
- geom_text(aes(label = author, y = 0.1),  # Place text at Y = 0
-            angle = 0, color = "#404E5C", size = 4, hjust = 0) +
-  scale_fill_manual(values = c("TRUE" = "#EEF0FC", "FALSE" = "#B7C3F3")) +
-  theme_minimal() +
-  theme(
-    text = element_text(color = "#404E5C"),
-    axis.ticks.y = element_blank(),  # Remove axis ticks
-    axis.ticks.x = element_line(color = "#404E5C"),  # Keep Y-axis tick marks
-    axis.text = element_blank(), # Remove y-axis text
-    panel.grid = element_blank(),   # Remove gridlines
-    panel.border = element_blank(),
-    legend.position = "none",
-    plot.title = element_text(face = "italic")) +  
-  labs(x=NULL,y=NULL, title = "Number of books per author")
-
-ggsave(filename = "charts/bar.png",
-       plot = w, # last_plot()
-       width = 9,
-       height = 4.5,
-       dpi = "retina",
-       limitsize = FALSE)
-
-knitr::include_graphics("bar.png")
-```
-
-<!-- SET OF COLUMNS -->
-
-:::: {.columns}
-
-::: {.column width="25%"}
-<br>
-<center>`r fa(name = "book-open", fill = "#710A31", height = "4em")`<br>
-<span style="color: #710A31;font-size: 200%;">`r total_books_this_year`</span><br>
-<span style="color: #710A31;font-size: 115%;"> Books Read <i>(`r this_year`)</i></span></center>
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-
-::: {.column width="65%"}
-`r knitr::include_graphics("charts/ages.png")`
-:::
-
-::::
-
-<!-- SET OF COLUMNS -->
-<br>
-<br>
-
-:::: {.columns}
-
-::: {.column width="65%"}
-`r knitr::include_graphics("charts/freq.png")`
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-<br>
-<center>`r fa(name = "user-secret", fill = "#4F6272", height = "4em")`<br>
-<span style="color: #4F6272;font-size: 200%;">Mystery</span><br>
-<span style="color: #4F6272;font-size: 115%;">Most Read Genre</span></center>
-:::
-
-::::
-
-```{r}
+```{r pie chart}
 #| echo: false
 
 sos <- goodreads_library_export |> 
@@ -378,11 +334,187 @@ c<-ggplot(sos2, aes(x = 2, y = count, fill = rating)) +
   )+
   xlim(c(0.5, 2.5))  # Creates the hole in the center
 
+
+sos <- goodreads_library_export |> 
+  arrange(desc(Binding)) |> 
+  group_by(Binding) |> 
+  mutate(count = n(),
+         label = ifelse(row_number() == 3, Binding, "")) 
+  
+
+
+b <- ggplot(sos, aes(x = 2, y = count, fill = reorder(Binding, count))) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") + # Turn into pie chart
+  xlim(c(0, 2.5)) + # Turn into donut chart
+  scale_fill_manual(values = c("#DD7596", "#CF1259", "#B7C3F3")) +  # Custom colors
+  theme_void() +
+  theme(
+    plot.title = element_text(color = "#710A31", face = "italic", size = 18),
+    legend.position = "none") +
+  labs(title = "Book Medium") +
+  geom_text(
+    aes(label = label),
+    color = "#710A31",
+    size = 6,
+    position = position_stack(vjust = 0.5))
+
+ggsave(filename = "charts/pie.png",
+       plot = b, # last_plot()
+       width = 4.5,
+       height = 4.5,
+       dpi = "retina",
+       limitsize = FALSE)
+
+#knitr::include_graphics("charts/bar.png")
+
 ```
+
+```{r author count bar chart}
+#| echo: false
+
+w <- ggplot(df_books3, aes(x = reorder(author, table(author)[author]))) + 
+  geom_bar(aes(fill = after_stat(count == 1)), stat = "count") +
+  coord_flip() +
+ geom_text(aes(label = author, y = 0.1),  # Place text at Y = 0
+            angle = 0, color = "#404E5C", size = 4, hjust = 0) +
+  scale_fill_manual(values = c("TRUE" = "#EEF0FC", "FALSE" = "#B7C3F3")) +
+  theme_minimal() +
+  theme(
+    text = element_text(color = "#404E5C"),
+    axis.ticks.y = element_blank(),  # Remove axis ticks
+    axis.ticks.x = element_line(color = "#404E5C"),  # Keep Y-axis tick marks
+    axis.text = element_blank(), # Remove y-axis text
+    panel.grid = element_blank(),   # Remove gridlines
+    panel.border = element_blank(),
+    legend.position = "none",
+    plot.title = element_text(face = "italic")) +  
+  labs(x=NULL,y=NULL, title = "Number of books per author")
+
+ggsave(filename = "charts/bar.png",
+       plot = w, # last_plot()
+       width = 6,
+       height = 4.5,
+       dpi = "retina",
+       limitsize = FALSE)
+
+#knitr::include_graphics("charts/bar.png")
+```
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+
+:::: {.columns}
+
+::: {.column width="30%"}
+`r knitr::include_graphics("charts/pie.png")`
+:::
+
+::: {.column width="10%"}
+<!-- empty column to create gap -->
+:::
+
+::: {.column width="60%"}
+`r knitr::include_graphics("charts/bar.png")`
+:::
+
+::::
+
+
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+
+:::: {.columns}
+
+::: {.column width="25%"}
+<br>
+<center>`r fa(name = "book-open", fill = "#710A31", height = "4em")`<br>
+<span style="color: #710A31;font-size: 200%;">`r total_books_this_year`</span><br>
+<span style="color: #710A31;font-size: 115%;"> Books Read <i>(`r this_year`)</i></span></center>
+:::
+
+::: {.column width="10%"}
+<!-- empty column to create gap -->
+:::
+
+
+::: {.column width="65%"}
+`r knitr::include_graphics("charts/ages.png")`
+:::
+
+::::
+
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+<br>
+<br>
+
+:::: {.columns}
+
+::: {.column width="65%"}
+`r knitr::include_graphics("charts/freq.png")`
+:::
+
+::: {.column width="10%"}
+<!-- empty column to create gap -->
+:::
+
+::: {.column width="25%"}
+<br>
+<center>`r fa(name = "user-secret", fill = "#4F6272", height = "4em")`<br>
+<span style="color: #4F6272;font-size: 200%;">Mystery</span><br>
+<span style="color: #4F6272;font-size: 115%;">Most Read Genre</span></center>
+:::
+
+::::
+
+## Reviews
+
+:::: {.columns}
+
+::: {.column width="25%"}
+![](images/6.jpg){width=1.5in}
+:::
+
+::: {.column width="10%"}
+<!-- empty column to create gap -->
+:::
+
+::: {.column width="25%"}
+
+`r goodreads_library_export |> clean_names() |> filter(title == "Wildwood Magic") |> pull(my_review)`
+:::
+
+::::
+<br>
+
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+<!-- SET OF COLUMNS -->
+
+:::: {.columns}
+
+::: {.column width="25%"}
+
+`r goodreads_library_export |> clean_names() |> filter(title == "The Body in the Garden (Lily Adler Mystery, #1)") |> pull(my_review)`
+:::
+
+::: {.column width="10%"}
+<!-- empty column to create gap -->
+:::
+
+::: {.column width="25%"}
+![](images/15.jpg){width=1.5in}
+:::
+
+
+::::
 
 ## All Books 
 
-![](images/1.jpg "My first book"){width=1.5in}
+![](images/1.jpg "My first book in 2024"){width=1.5in}
 ![](images/2.jpg){width=1.5in}
 ![](images/3.jpg){width=1.5in}
 ![](images/4.jpg){width=1.5in}
@@ -407,49 +539,6 @@ c<-ggplot(sos2, aes(x = 2, y = count, fill = rating)) +
 ![](images/20.jpg){width=1.5in}
 
 ![](images/21.jpg){width=1.5in}
-![](images/22.jpg){width=1.5in}
-
-
-## Reviews
-
-:::: {.columns}
-
-::: {.column width="25%"}
-![](images/6.jpg){width=1.5in}
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-
-`r goodreads_library_export |> clean_names() |> filter(title == "Wildwood Magic") |> pull(my_review)`
-:::
-
-::::
-<br>
-
-<!-- SET OF COLUMNS -->
-
-:::: {.columns}
-
-::: {.column width="25%"}
-
-`r goodreads_library_export |> clean_names() |> filter(title == "The Body in the Garden (Lily Adler Mystery, #1)") |> pull(my_review)`
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-![](images/15.jpg){width=1.5in}
-:::
-
-
-::::
-
-
+![](images/22.jpg "The library bought this book because I asked for it... and then I didn't like it."){width=1.5in}
 
 :::
