@@ -1,7 +1,6 @@
 ---
 title: Data from Anna's goodreads account
 format: html
-backgroundcolor: "#FBEFF3"
 embed-resources: true
 self-contained-math: true
 
@@ -48,11 +47,14 @@ df_books <- data.frame(
 )
 
 library(janitor)
-goodreads_library_export <- read_csv("C:/Users/aeckenrode/IDEA/book/raw data/goodreads_library_export.csv")
+goodreads_library_export <- read_csv("C:/Users/Anna Eckenrode/Desktop/Disco Time/book/raw data/goodreads_library_export.csv")
+
 soup <- goodreads_library_export |> 
   clean_names() |> 
   select(name = title, author, date = date_read, pages = number_of_pages, year_published = original_publication_year) |> 
-  mutate(date = as.Date(date, format = "%m/%d/%Y"))
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) |> 
+  # at present, i don't want anything in parenthesis, it's not really part of the titles
+  mutate(name = str_remove(name, " \\([^)]*\\)$"))
 
 df_books <- soup
 
@@ -99,16 +101,16 @@ last_year <- year(today())-1
 last_book <- df_books[which.max(df_books$date), ]
 
 x <- ggplot(df_books, aes(x = date, xend = date, y = 0, yend = 1)) +
-  geom_hline(yintercept = 1, color = "#4F6272", linewidth = 1) +   # Line at y = 1
-  geom_point(y = 1, color = "#B7C3F3", size = 6) +  # Dots for books
+  geom_hline(yintercept = 1, color = "#710A31", linewidth = 1) +   # Line at y = 1
+  geom_point(y = 1, color = "#DD7596", size = 6) +  # Dots for books
   labs(x = NULL, y = NULL, title = "Timeline of books by date read") +
   theme_minimal() +
   theme(
     axis.text.y = element_blank(),
-    axis.text.x = element_text(color = "#4F6272", size = 12),
+    axis.text.x = element_text(color = "#710A31", size = 12),
     axis.ticks = element_blank(),
     panel.grid = element_blank(),
-    plot.title = element_text(color = "#4F6272", face = "italic"),
+    plot.title = element_text(color = "#710A31", face = "italic"),
     legend.position = "none") + #plot.background = element_rect(fill = '#EEF0FC', colour = '#EEF0FC')
   scale_x_date(date_labels = "%b %Y")+
   geom_text(                                                       # Label for the last point
@@ -116,7 +118,7 @@ x <- ggplot(df_books, aes(x = date, xend = date, y = 0, yend = 1)) +
     aes(label = name, y = 1), 
     vjust = -1.5,
     hjust = 0.75,
-    color = "#4F6272", 
+    color = "#710A31", 
     size = 3.75, 
     fontface = "italic"
   ) 
@@ -233,49 +235,26 @@ soup <- df_books3 |>
   group_by(year) |> 
   mutate(total_pages = sum(pages),
          label = str_c(scales::label_comma()(total_pages), " pgs")) |> 
-  distinct(year, total_pages, label)
+  distinct(year, total_pages, label) |> 
+  ungroup() |> 
+  add_row(year = "2023", total_pages = 0, label = "0 pgs") # add 0 for context
 
 c <- ggplot(soup, aes(total_pages, factor(year))) +
-  geom_col(aes(fill = factor(year))) +  
-  geom_text(aes(label = label, color = factor(year)), hjust = -0.1) +
-  scale_fill_manual(values = c("#DD7596", "#CF1259")) +
-  scale_color_manual(values = c("#DD7596","#CF1259")) +
+  geom_col(fill = "#DD7596", width = 0.5) +  
+  geom_text(aes(label = label), color = "#DD7596", hjust = -0.1, size = 8) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
-  theme_void()+
-  theme(
-    legend.position = "none",
-    axis.text.y = element_text(color = "#404E5C"),
-    text = element_text(size = 20)) +
+  theme_void() +
+  theme(legend.position = "none", 
+        axis.text.y = element_text(color = "#404E5C", size = 35), 
+        text = element_text(size = 35)) +
   geom_vline(xintercept = 0, color = "black", linewidth = 1)
+
+
 
 
 ggsave(filename = "charts/pagesyear.png",
        plot = c,
        width = 6,
-       height = 4,
-       dpi = "retina",
-       limitsize = FALSE)
-```
-
-```{r rating freq chart}
-#| echo: false
-
-v <- ggplot(goodreads_library_export, aes(x = factor(floor(`Average Rating`), levels = 1:5))) +
-  geom_bar(fill = "#B7C3F3", width = 0.7) +
-  labs(x = NULL, y = NULL, title = "Average star ratings") +
-  scale_x_discrete(drop = FALSE) +
-  theme_minimal() +
-  theme(
-    text = element_text(size = 18,color = "#404E5C"),
-    # axis.text.x = element_text(color = "#404E5C"),
-    # axis.text.y = element_text(color = "#404E5C"),
-    panel.grid = element_blank(),
-    plot.title = element_text(face = "italic")
-  )
-
-ggsave(filename = "charts/freq.png",
-       plot = v, # last_plot()
-       width = 9,
        height = 4,
        dpi = "retina",
        limitsize = FALSE)
@@ -397,9 +376,10 @@ ggsave(filename = "charts/bar.png",
        height = 4.5,
        dpi = "retina",
        limitsize = FALSE)
-
-#knitr::include_graphics("charts/bar.png")
 ```
+
+
+
 <!-- SET OF COLUMNS -->
 <!-- SET OF COLUMNS -->
 <!-- SET OF COLUMNS -->
@@ -445,6 +425,44 @@ ggsave(filename = "charts/bar.png",
 
 ::::
 
+
+```{r book heatmap}
+#| echo: false
+#| 
+heat_data <- df_books %>%
+  filter(!is.na(date)) %>%
+  mutate(
+    year  = year(date),
+    month = month(date, label = TRUE, abbr = TRUE)
+  ) %>%
+  count(year, month)
+
+
+u <- ggplot(heat_data, aes(month, factor(year), fill = n)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  geom_text(aes(label = n), color = "white", size = 4) +
+  scale_x_discrete(position = "top") +
+  scale_fill_gradient(
+    low = "#F7CAD0",
+    high = "#CF1259"
+  ) +
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 16) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(color = "#710A31", margin = margin(b = 5)),
+    axis.text.y = element_text(color = "#710A31", margin = margin(r = 6)),
+    axis.ticks = element_blank(),
+    legend.position = "none"
+  )
+
+ggsave(filename = "charts/heatmap.png",
+       plot = u, # last_plot()
+       width = 9,
+       height = 1.5,
+       dpi = "retina",
+       limitsize = FALSE)
+```
 <!-- SET OF COLUMNS -->
 <!-- SET OF COLUMNS -->
 <!-- SET OF COLUMNS -->
@@ -453,19 +471,8 @@ ggsave(filename = "charts/bar.png",
 
 :::: {.columns}
 
-::: {.column width="65%"}
-`r knitr::include_graphics("charts/freq.png")`
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-<br>
-<center>`r fa(name = "user-secret", fill = "#4F6272", height = "4em")`<br>
-<span style="color: #4F6272;font-size: 200%;">Mystery</span><br>
-<span style="color: #4F6272;font-size: 115%;">Most Read Genre</span></center>
+::: {.column width="100%"}
+`r knitr::include_graphics("charts/heatmap.png")`
 :::
 
 ::::
@@ -540,5 +547,17 @@ ggsave(filename = "charts/bar.png",
 
 ![](images/21.jpg){width=1.5in}
 ![](images/22.jpg "The library bought this book because I asked for it... and then I didn't like it."){width=1.5in}
-
+![](images/23.jpg){width=1.5in}
+![](images/24.jpg){width=1.5in}
+![](images/25.jpg){width=1.5in}
+![](images/26.jpg){width=1.5in}
+![](images/27.jpg){width=1.5in}
+![](images/28.jpg){width=1.5in}
+![](images/29.jpg){width=1.5in}
+![](images/30.jpg){width=1.5in}
+![](images/31.jpg){width=1.5in}
+![](images/32.jpg){width=1.5in}
+![](images/33.jpg){width=1.5in}
+![](images/34.jpg){width=1.5in}
+![](images/35.jpg){width=1.5in}
 :::
