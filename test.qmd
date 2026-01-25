@@ -560,4 +560,7 @@ ggsave(filename = "charts/heatmap.png",
 ![](images/33.jpg){width=1.5in}
 ![](images/34.jpg){width=1.5in}
 ![](images/35.jpg){width=1.5in}
+
+![](images/36.jpg){width=1.5in}
+![](images/37.jpg){width=1.5in}
 :::
