@@ -22,66 +22,54 @@ library(dplyr)
 library(plotly)
 suppressWarnings(library(ggthemes))
 library(scales)
-
-# Create a fake dataframe with book names, date read, and number of pages
-df_books <- data.frame(
-  name = c(
-    "The Great Gatsby", "1984", "To Kill a Mockingbird", "Pride and Prejudice", "Moby Dick",
-    "War and Peace", "The Catcher in the Rye", "Brave New World", "The Odyssey", "Crime and Punishment",
-    "The Hobbit", "Fahrenheit 451", "Jane Eyre", "The Alchemist", "The Grapes of Wrath"
-  ),
-  date = as.Date(c(
-    "2024-01-15", "2024-02-20", "2024-03-05", "2024-03-10", "2023-03-18",
-    "2023-06-25", "2023-08-11", "2023-09-01", "2023-10-03", "2023-11-07",
-    "2024-01-10", "2024-02-05", "2025-03-22", "2024-04-15", "2025-05-01"
-  )),
-  pages = c(218, 328, 281, 432, 585, 752, 277, 311, 450, 431, 310, 158, 400, 208, 464),
-  year_published = c(
-    1925, 1949, 1960, 1813, 1851, 1869, 1951, 1932, -800, 1866, 1937, 1953, 1847, 1988, 1939
-  ),
-  author = c(
-    "F. Scott Fitzgerald", "George Orwell", "Harper Lee", "Jane Austen", "Herman Melville",
-    "Leo Tolstoy", "J.D. Salinger", "Aldous Huxley", "Homer", "Fyodor Dostoevsky",
-    "J.R.R. Tolkien", "Ray Bradbury", "Charlotte Brontë", "Paulo Coelho", "John Steinbeck"
-  )
-)
-
 library(janitor)
-goodreads_library_export <- read_csv("C:/Users/Anna Eckenrode/Desktop/Disco Time/book/raw data/goodreads_library_export.csv")
+
+goodreads_library_export <- read_csv(str_c("C:/Users/", Sys.getenv("USERNAME"), "/Desktop/Disco Time/book/raw data/goodreads_library_export.csv"))
 
 soup <- goodreads_library_export |> 
   clean_names() |> 
-  select(name = title, author, date = date_read, pages = number_of_pages, year_published = original_publication_year) |> 
-  mutate(date = as.Date(date, format = "%m/%d/%Y")) |> 
-  # at present, i don't want anything in parenthesis, it's not really part of the titles
-  mutate(name = str_remove(name, " \\([^)]*\\)$"))
+  mutate(date_read = as.Date(date_read, format = "%m/%d/%Y"),
+    # at present, i don't want anything in parenthesis, it's not really part of the titles
+    title = str_remove(title, " \\([^)]*\\)$"),
+    
+    # Fill in blanks if they're there in Dates
+    original_publication_year = ifelse(is.na(original_publication_year), year_published, original_publication_year)) |> 
+
+  select(name = title, author, date = date_read, pages = number_of_pages, year_published = original_publication_year)
+  
+  
 
 df_books <- soup
 
+# How many books are there total (across all years)?
 total_books <- length(unique(df_books$name))
 
+# How many books are there in the current year?
 total_books_this_year <- df_books |> 
   filter(year(date) == year(today())) |> 
   nrow()
 
+# How many pages were read this year?
 total_pages_this_year <- df_books |> 
   filter(year(date) == year(today())) |> 
   summarise(pages = sum(pages)) |> 
   pull()
 
-this_year <- year(today())
-
+# How many book were there last year?
 total_books_last_year <- df_books |> 
   filter(year(date) == max(year(date))-1) |> 
   nrow()
 
+# How many pages were read last year?
 total_pages_last_year <- df_books |> 
   filter(year(date) == max(year(date))-1) |> 
   summarise(pages = sum(pages)) |> 
   pull()
 
+this_year <- year(today())
 last_year <- year(today())-1
 
+# This is our color pallete. 
 "#FBEFF3"
 "#DD7596"
 "#CF1259"
@@ -91,13 +79,13 @@ last_year <- year(today())-1
 "#4F6272"
 "#404E5C"
 
-
 ```
 
 
 ```{r dripchart timeline}
 #| echo: false
 
+# What was the title of the last book I read?
 last_book <- df_books[which.max(df_books$date), ]
 
 x <- ggplot(df_books, aes(x = date, xend = date, y = 0, yend = 1)) +
@@ -149,6 +137,7 @@ df_books2 <- df_books |>
   pivot_longer(cols = c("plot_pages", "plot_pages_neg"),
                names_to = "type",
                values_to = "value") |> 
+  arrange(author) |> 
   mutate(label = case_when(
     value == max(value) & type == "plot_pages" ~ paste("Longest \n", name, "\n", pages, "pages"),
     value == min(value[value>0]) & type == "plot_pages" ~ paste("Shortest \n", name, "\n", pages, "pages"),
@@ -162,7 +151,7 @@ y <- ggplot(df_books2, aes(x = factor(name, levels = unique(name)), y = value)) 
   labs(x=NULL,y=NULL, title = "Number of pages read by book")+
   theme_minimal()+
   theme(
-    text = element_text(size = 18),
+    text = element_text(size = 12),
     axis.text.y = element_blank(), # Remove y-axis text
     axis.text.x = element_text(color = "#710A31", vjust = 1.1),
     axis.ticks = element_blank(),  # Remove axis ticks
@@ -228,62 +217,7 @@ ggsave(filename = "charts/ages.png",
   
 ```
 
-```{r pages year bar chart}
-#| echo: false
-soup <- df_books3 |> 
-  mutate(year = as.character(year(date))) |> 
-  group_by(year) |> 
-  mutate(total_pages = sum(pages),
-         label = str_c(scales::label_comma()(total_pages), " pgs")) |> 
-  distinct(year, total_pages, label) |> 
-  ungroup() |> 
-  add_row(year = "2023", total_pages = 0, label = "0 pgs") # add 0 for context
 
-c <- ggplot(soup, aes(total_pages, factor(year))) +
-  geom_col(fill = "#DD7596", width = 0.5) +  
-  geom_text(aes(label = label), color = "#DD7596", hjust = -0.1, size = 8) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
-  theme_void() +
-  theme(legend.position = "none", 
-        axis.text.y = element_text(color = "#404E5C", size = 35), 
-        text = element_text(size = 35)) +
-  geom_vline(xintercept = 0, color = "black", linewidth = 1)
-
-
-
-
-ggsave(filename = "charts/pagesyear.png",
-       plot = c,
-       width = 6,
-       height = 4,
-       dpi = "retina",
-       limitsize = FALSE)
-
-
-```
-
-<!-- SET OF COLUMNS -->
-
-:::: {.columns}
-
-::: {.column width="65%"}
-`r knitr::include_graphics("charts/pages.png")`
-:::
-
-::: {.column width="5%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="30%"}
-
-`r knitr::include_graphics("charts/pagesyear.png")`
-<!-- <br>-->
-<!-- <center>`r fa(name = "book-open-reader", fill = "#CF1259", height = "4em")`<br>-->
-<!-- <span style="color: #CF1259;font-size: 200%;">`r label_comma()(total_pages_this_year)`</span><br>-->
-<!-- <span style="color: #CF1259;font-size: 115%;">Pages Read <i>(`r this_year`)</i></span></center>-->
-:::
-
-::::
 
 ```{r pie chart}
 #| echo: false
@@ -315,10 +249,16 @@ c<-ggplot(sos2, aes(x = 2, y = count, fill = rating)) +
 
 
 sos <- goodreads_library_export |> 
+  mutate(Binding = case_when(
+    Binding == "Paperback" | Binding == "Hardcover" ~ "Physical Copy",
+    TRUE ~ Binding)) |> 
   arrange(desc(Binding)) |> 
   group_by(Binding) |> 
   mutate(count = n(),
-         label = ifelse(row_number() == 3, Binding, "")) 
+         label = case_when(
+           row_number() == 3 & Binding == "Kindle Edition" ~ Binding,
+           row_number() == 10 & Binding == "Physical Copy" ~ Binding,
+           TRUE ~ "")) 
   
 
 
@@ -326,7 +266,7 @@ b <- ggplot(sos, aes(x = 2, y = count, fill = reorder(Binding, count))) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar(theta = "y") + # Turn into pie chart
   xlim(c(0, 2.5)) + # Turn into donut chart
-  scale_fill_manual(values = c("#DD7596", "#CF1259", "#B7C3F3")) +  # Custom colors
+  scale_fill_manual(values = c("#DD7596", "#CF1259")) +  # Custom colors
   theme_void() +
   theme(
     plot.title = element_text(color = "#710A31", face = "italic", size = 18),
@@ -352,7 +292,12 @@ ggsave(filename = "charts/pie.png",
 ```{r author count bar chart}
 #| echo: false
 
-w <- ggplot(df_books3, aes(x = reorder(author, table(author)[author]))) + 
+w <- df_books3 %>%
+  group_by(author) %>%
+  mutate(n_books = n()) %>%
+  ungroup() |> 
+  filter(n_books > 1) %>%
+  ggplot(aes(x = reorder(author, n_books))) +  
   geom_bar(aes(fill = after_stat(count == 1)), stat = "count") +
   coord_flip() +
  geom_text(aes(label = author, y = 0.1),  # Place text at Y = 0
@@ -368,7 +313,7 @@ w <- ggplot(df_books3, aes(x = reorder(author, table(author)[author]))) +
     panel.border = element_blank(),
     legend.position = "none",
     plot.title = element_text(face = "italic")) +  
-  labs(x=NULL,y=NULL, title = "Number of books per author")
+  labs(x=NULL,y=NULL, title = "Repeat Authors")
 
 ggsave(filename = "charts/bar.png",
        plot = w, # last_plot()
@@ -400,6 +345,50 @@ ggsave(filename = "charts/bar.png",
 
 ::::
 
+```{r pages year bar chart}
+#| echo: false
+soup <- df_books3 |> 
+  mutate(year = as.character(year(date))) |> 
+  group_by(year) |> 
+  mutate(total_pages = sum(pages),
+         label = str_c(scales::label_comma()(total_pages), " pgs")) |> 
+  distinct(year, total_pages, label) |> 
+  ungroup() |> 
+  add_row(year = "2023", total_pages = 0, label = "0 pgs") # add 0 for context
+
+c <- ggplot(soup, aes(total_pages, factor(year))) +
+  geom_col(fill = "#DD7596", width = 0.5) +  
+  labs(x=NULL,y=NULL, title = " ")+
+  geom_text(aes(label = label), color = "#DD7596", hjust = -0.1, size = 8) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
+  theme_void() +
+  theme(legend.position = "none", 
+        axis.text.y = element_text(color = "#404E5C", size = 35), 
+        text = element_text(size = 35)) +
+  geom_vline(xintercept = 0, color = "black", linewidth = 1)
+
+
+
+
+ggsave(filename = "charts/pagesyear.png",
+       plot = c,
+       width = 6,
+       height = 4,
+       dpi = "retina",
+       limitsize = FALSE)
+
+
+```
+
+<!-- SET OF COLUMNS -->
+
+:::: {.columns}
+
+::: {.column width="100%"}
+`r knitr::include_graphics("charts/pages.png")`
+:::
+
+::::
 
 <!-- SET OF COLUMNS -->
 <!-- SET OF COLUMNS -->
@@ -407,11 +396,8 @@ ggsave(filename = "charts/bar.png",
 
 :::: {.columns}
 
-::: {.column width="25%"}
-<br>
-<center>`r fa(name = "book-open", fill = "#710A31", height = "4em")`<br>
-<span style="color: #710A31;font-size: 200%;">`r total_books_this_year`</span><br>
-<span style="color: #710A31;font-size: 115%;"> Books Read <i>(`r this_year`)</i></span></center>
+::: {.column width="30%"}
+`r knitr::include_graphics("charts/pagesyear.png")`
 :::
 
 ::: {.column width="10%"}
@@ -419,7 +405,7 @@ ggsave(filename = "charts/bar.png",
 :::
 
 
-::: {.column width="65%"}
+::: {.column width="60%"}
 `r knitr::include_graphics("charts/ages.png")`
 :::
 
@@ -550,11 +536,13 @@ ggsave(filename = "charts/heatmap.png",
 ![](images/23.jpg){width=1.5in}
 ![](images/24.jpg){width=1.5in}
 ![](images/25.jpg){width=1.5in}
+
 ![](images/26.jpg){width=1.5in}
 ![](images/27.jpg){width=1.5in}
 ![](images/28.jpg){width=1.5in}
 ![](images/29.jpg){width=1.5in}
 ![](images/30.jpg){width=1.5in}
+
 ![](images/31.jpg){width=1.5in}
 ![](images/32.jpg){width=1.5in}
 ![](images/33.jpg){width=1.5in}
@@ -563,4 +551,5 @@ ggsave(filename = "charts/heatmap.png",
 
 ![](images/36.jpg){width=1.5in}
 ![](images/37.jpg){width=1.5in}
+![](images/38.jpg){width=1.5in}
 :::
