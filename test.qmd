@@ -507,49 +507,31 @@ ggsave(filename = "charts/heatmap.png",
 
 ## All Books 
 
-![](images/1.jpg "My first book in 2024"){width=1.5in}
-![](images/2.jpg){width=1.5in}
-![](images/3.jpg){width=1.5in}
-![](images/4.jpg){width=1.5in}
-![](images/5.jpg "My longest book - 452 pages"){width=1.5in}
+```{r, echo=FALSE, results='asis'}
+img_dir <- "images/"
 
-![](images/6.jpg){width=1.5in}
-![](images/7.jpg){width=1.5in}
-![](images/8.jpg){width=1.5in}
-![](images/9.jpg){width=1.5in}
-![](images/10.jpg){width=1.5in}
+files <- list.files(
+  img_dir,
+  pattern = "\\.(png|jpg)$",
+  full.names = TRUE
+)
 
-![](images/11.jpg "Hmm my least favorite"){width=1.5in}
-![](images/12.jpg "I watched the movie after reading"){width=1.5in}
-![](images/13.jpg "My shortest book - 288 pages & My oldest book - published in 1979"){width=1.5in}
-![](images/14.jpg "My first book in 2025"){width=1.5in}
-![](images/15.jpg){width=1.5in}
+files <- files[order(as.numeric(gsub("\\D", "", basename(files))))]
 
-![](images/16.jpg){width=1.5in}
-![](images/17.jpg){width=1.5in}
-![](images/18.jpg){width=1.5in}
-![](images/19.jpg){width=1.5in}
-![](images/20.jpg){width=1.5in}
+cat("::: {.grid}\n")
 
-![](images/21.jpg){width=1.5in}
-![](images/22.jpg "The library bought this book because I asked for it... and then I didn't like it."){width=1.5in}
-![](images/23.jpg){width=1.5in}
-![](images/24.jpg){width=1.5in}
-![](images/25.jpg){width=1.5in}
+for (i in seq_along(files)) {
+  cat("::: {.g-col-2}\n")
+  cat(sprintf("![](%s){width=1.2in}\n", files[i]))
+  cat(":::\n")
 
-![](images/26.jpg){width=1.5in}
-![](images/27.jpg){width=1.5in}
-![](images/28.jpg){width=1.5in}
-![](images/29.jpg){width=1.5in}
-![](images/30.jpg){width=1.5in}
+  if (i %% 6 == 0 && i != length(files)) {
+    cat(":::\n\n::: {.grid}\n")
+  }
+}
 
-![](images/31.jpg){width=1.5in}
-![](images/32.jpg){width=1.5in}
-![](images/33.jpg){width=1.5in}
-![](images/34.jpg){width=1.5in}
-![](images/35.jpg){width=1.5in}
+cat(":::\n")
+```
 
-![](images/36.jpg){width=1.5in}
-![](images/37.jpg){width=1.5in}
-![](images/38.jpg){width=1.5in}
+
 :::
