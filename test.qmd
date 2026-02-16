@@ -292,11 +292,13 @@ ggsave(filename = "charts/pie.png",
 ```{r author count bar chart}
 #| echo: false
 
-w <- df_books3 %>%
+df_books3.1 <- df_books3 %>%
   group_by(author) %>%
   mutate(n_books = n()) %>%
   ungroup() |> 
-  filter(n_books > 1) %>%
+  filter(n_books > 1)
+  
+w <- df_books3.1 |> 
   ggplot(aes(x = reorder(author, n_books))) +  
   geom_bar(aes(fill = after_stat(count == 1)), stat = "count") +
   coord_flip() +
@@ -308,11 +310,12 @@ w <- df_books3 %>%
     text = element_text(color = "#404E5C"),
     axis.ticks.y = element_blank(),  # Remove axis ticks
     axis.ticks.x = element_line(color = "#404E5C"),  # Keep Y-axis tick marks
-    axis.text = element_blank(), # Remove y-axis text
-    panel.grid = element_blank(),   # Remove gridlines
+    axis.text.y = element_blank(), # Remove y-axis text
+    panel.grid = element_blank(),   # Remove grid lines
     panel.border = element_blank(),
     legend.position = "none",
     plot.title = element_text(face = "italic")) +  
+  scale_y_continuous(breaks = range(df_books3.1$n_books)) +      # Show only min and max age on x-axis
   labs(x=NULL,y=NULL, title = "Repeat Authors")
 
 ggsave(filename = "charts/bar.png",
