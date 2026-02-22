@@ -7,6 +7,50 @@ self-contained-math: true
 ---
 
 ::: {.panel-tabset}
+## Bookshelf 
+```{r}
+#| include: false
+#| # backgroundcolor: "#FBEFF3"
+library(fontawesome)
+library(gt)
+library(gtExtras)
+library(lubridate)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+suppressWarnings(library(ggthemes))
+library(scales)
+library(janitor)
+
+```
+
+```{r, echo=FALSE, results='asis'}
+img_dir <- "images/"
+
+files <- list.files(
+  img_dir,
+  pattern = "\\.(png|jpg)$",
+  full.names = TRUE
+)
+
+files <- files[order(as.numeric(gsub("\\D", "", basename(files))))]
+
+cat("::: {.grid}\n")
+
+for (i in seq_along(files)) {
+  cat("::: {.g-col-2}\n")
+  cat(sprintf("![](%s){width=1.2in}\n", files[i]))
+  cat(":::\n")
+
+  if (i %% 6 == 0 && i != length(files)) {
+    cat(":::\n\n::: {.grid}\n")
+  }
+}
+
+cat(":::\n")
+```
+
 ## Data Visualization
 
 ```{r}
@@ -23,6 +67,7 @@ library(plotly)
 suppressWarnings(library(ggthemes))
 library(scales)
 library(janitor)
+library(ggforce)
 
 goodreads_library_export <- read_csv(str_c("C:/Users/", Sys.getenv("USERNAME"), "/Desktop/Disco Time/book/raw data/goodreads_library_export.csv"))
 
@@ -137,7 +182,7 @@ df_books2 <- df_books |>
   pivot_longer(cols = c("plot_pages", "plot_pages_neg"),
                names_to = "type",
                values_to = "value") |> 
-  arrange(author) |> 
+  arrange(name) |> 
   mutate(label = case_when(
     value == max(value) & type == "plot_pages" ~ paste("Longest \n", name, "\n", pages, "pages"),
     value == min(value[value>0]) & type == "plot_pages" ~ paste("Shortest \n", name, "\n", pages, "pages"),
@@ -147,7 +192,7 @@ x_labels <- df_books2 |> filter(type == "plot_pages") |> pull(label)
 
 y <- ggplot(df_books2, aes(x = factor(name, levels = unique(name)), y = value)) +
   geom_bar(
-    stat = "identity", position = position_stack(), fill = "#CF1259", width = 0.09) +
+    stat = "identity", position = position_stack(), fill = "#4F6272", width = 0.09) +
   labs(x=NULL,y=NULL, title = "Number of pages read by book")+
   theme_minimal()+
   theme(
@@ -274,7 +319,7 @@ b <- ggplot(sos, aes(x = 2, y = count, fill = reorder(Binding, count))) +
   labs(title = "Book Medium") +
   geom_text(
     aes(label = label),
-    color = "#710A31",
+    color = "#404E5C",
     size = 6,
     position = position_stack(vjust = 0.5))
 
@@ -287,6 +332,63 @@ ggsave(filename = "charts/pie.png",
 
 #knitr::include_graphics("charts/bar.png")
 
+```
+```{r gauge chart}
+#| echo: false
+
+
+
+fake_dat <- goodreads_library_export |> 
+  mutate(Binding = case_when(
+    Binding == "Paperback" | Binding == "Hardcover" ~ "Physical Copy",
+    TRUE ~ Binding)) |> 
+  group_by(Binding) |> 
+  count() |> 
+  ungroup() |> 
+  mutate(percentage = n / sum(n)) |>   # Compute percentage
+  mutate(
+         start = lag(percentage, default = 0) * pi,
+         end = start + percentage * pi
+  )
+
+gauge_plot <- fake_dat |>
+  ggplot() +
+  geom_arc_bar(
+    aes(
+      x0 = 1,
+      y0 = 1,
+      fill = Binding,
+      start = start - pi / 2,
+      end = end - pi / 2,
+      r0 = 0.75,
+      r = 1
+    ), color = NA
+  ) +
+  annotate(
+    "text",
+    x = 1,
+    y = 1,
+    label = glue::glue("Book medium
+                       {round(fake_dat$percentage[which(fake_dat$Binding == 'Physical Copy')]*100, digits =0)}% Physical
+                       {round(fake_dat$percentage[which(fake_dat$Binding == 'Kindle Edition')]*100, digits =0)}% Kindle"),
+    size = 5,
+    color = "#710A31",
+    vjust = 0
+  ) +
+  coord_fixed()+ 
+  #labs(title = "Book medium") +
+  labs(x=NULL,y=NULL, title = NULL)+
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("Kindle Edition" = "#DD7596", "Physical Copy" = "#CF1259"))
+
+
+ggsave(filename = "charts/pie2.png",
+       plot = gauge_plot, # last_plot()
+       width = 4.5,
+       height = 3.5,
+       dpi = "retina",
+       limitsize = FALSE)
 ```
 
 ```{r author count bar chart}
@@ -335,7 +437,11 @@ ggsave(filename = "charts/bar.png",
 :::: {.columns}
 
 ::: {.column width="30%"}
-`r knitr::include_graphics("charts/pie.png")`
+::: {style="text-align: center;"}
+`r paste0("![](", files[length(files)], "){width=1.25in}")` 
+
+`r knitr::include_graphics("charts/pie2.png")`
+:::
 :::
 
 ::: {.column width="10%"}
@@ -360,14 +466,14 @@ soup <- df_books3 |>
   add_row(year = "2023", total_pages = 0, label = "0 pgs") # add 0 for context
 
 c <- ggplot(soup, aes(total_pages, factor(year))) +
-  geom_col(fill = "#DD7596", width = 0.5) +  
+  geom_col(fill = "#DD7596", width = 0.75) +  
   labs(x=NULL,y=NULL, title = " ")+
   geom_text(aes(label = label), color = "#DD7596", hjust = -0.1, size = 8) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
   theme_void() +
   theme(legend.position = "none", 
-        axis.text.y = element_text(color = "#404E5C", size = 35), 
-        text = element_text(size = 35)) +
+        axis.text.y = element_text(color = "#404E5C", size = 40), 
+        text = element_text(size = 38)) +
   geom_vline(xintercept = 0, color = "black", linewidth = 1)
 
 
@@ -376,7 +482,7 @@ c <- ggplot(soup, aes(total_pages, factor(year))) +
 ggsave(filename = "charts/pagesyear.png",
        plot = c,
        width = 6,
-       height = 4,
+       height = 5,
        dpi = "retina",
        limitsize = FALSE)
 
@@ -453,11 +559,6 @@ ggsave(filename = "charts/heatmap.png",
        limitsize = FALSE)
 ```
 <!-- SET OF COLUMNS -->
-<!-- SET OF COLUMNS -->
-<!-- SET OF COLUMNS -->
-<br>
-<br>
-
 :::: {.columns}
 
 ::: {.column width="100%"}
@@ -508,33 +609,7 @@ ggsave(filename = "charts/heatmap.png",
 
 ::::
 
-## All Books 
 
-```{r, echo=FALSE, results='asis'}
-img_dir <- "images/"
-
-files <- list.files(
-  img_dir,
-  pattern = "\\.(png|jpg)$",
-  full.names = TRUE
-)
-
-files <- files[order(as.numeric(gsub("\\D", "", basename(files))))]
-
-cat("::: {.grid}\n")
-
-for (i in seq_along(files)) {
-  cat("::: {.g-col-2}\n")
-  cat(sprintf("![](%s){width=1.2in}\n", files[i]))
-  cat(":::\n")
-
-  if (i %% 6 == 0 && i != length(files)) {
-    cat(":::\n\n::: {.grid}\n")
-  }
-}
-
-cat(":::\n")
-```
 
 
 :::
