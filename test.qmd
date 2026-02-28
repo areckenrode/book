@@ -184,8 +184,8 @@ df_books2 <- df_books |>
                values_to = "value") |> 
   arrange(name) |> 
   mutate(label = case_when(
-    value == max(value) & type == "plot_pages" ~ paste("Longest \n", name, "\n", pages, "pages"),
-    value == min(value[value>0]) & type == "plot_pages" ~ paste("Shortest \n", name, "\n", pages, "pages"),
+    value == max(value) & type == "plot_pages" ~ paste0("Longest (", pages, " pages)\n", name),
+    value == min(value[value>0]) & type == "plot_pages" ~ paste0("Shortest (", pages, " pages)\n", name),
     TRUE ~ ""))
 
 x_labels <- df_books2 |> filter(type == "plot_pages") |> pull(label)
