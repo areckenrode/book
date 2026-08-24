@@ -34,7 +34,7 @@ files <- list.files(
   full.names = TRUE
 )
 
-files <- files[order(as.numeric(gsub("\\D", "", basename(files))))]
+files <- files[order(as.numeric(gsub("\\D", "", basename(files))), decreasing = TRUE)]
 
 cat("::: {.grid}\n")
 
@@ -135,7 +135,7 @@ last_book <- df_books[which.max(df_books$date), ]
 
 x <- ggplot(df_books, aes(x = date, xend = date, y = 0, yend = 1)) +
   geom_hline(yintercept = 1, color = "#710A31", linewidth = 1) +   # Line at y = 1
-  geom_point(y = 1, color = "#DD7596", size = 6) +  # Dots for books
+  geom_point(y = 1, color = "#DD7596", size = 4) +  # Dots for books
   labs(x = NULL, y = NULL, title = "Timeline of books by date read") +
   theme_minimal() +
   theme(
@@ -150,7 +150,7 @@ x <- ggplot(df_books, aes(x = date, xend = date, y = 0, yend = 1)) +
     data = last_book, 
     aes(label = name, y = 1), 
     vjust = -1.5,
-    hjust = 0.75,
+    hjust = "right",
     color = "#710A31", 
     size = 3.75, 
     fontface = "italic"
@@ -183,16 +183,19 @@ df_books2 <- df_books |>
                names_to = "type",
                values_to = "value") |> 
   arrange(name) |> 
+  mutate(value = case_when( # add silly exception for two shortest books
+    name == "The Cat Who Played Brahms" & type == "plot_pages" ~ 97,
+    TRUE ~ value)) |> 
   mutate(label = case_when(
-    value == max(value) & type == "plot_pages" ~ paste0("Longest (", pages, " pages)\n", name),
-    value == min(value[value>0]) & type == "plot_pages" ~ paste0("Shortest (", pages, " pages)\n", name),
+    value == max(value) & type == "plot_pages" ~ paste0("Longest book - ", name, "\n", pages, " pages"),
+    value == min(value[value>0]) & type == "plot_pages" ~ paste0("Shortest book - ", name, "\n", pages, " pages"),
     TRUE ~ ""))
 
 x_labels <- df_books2 |> filter(type == "plot_pages") |> pull(label)
 
 y <- ggplot(df_books2, aes(x = factor(name, levels = unique(name)), y = value)) +
   geom_bar(
-    stat = "identity", position = position_stack(), fill = "#4F6272", width = 0.09) +
+    stat = "identity", position = position_stack(), fill = "#CF1259", width = 0.09) +
   labs(x=NULL,y=NULL, title = "Number of pages read by book")+
   theme_minimal()+
   theme(
@@ -222,7 +225,7 @@ ggsave(filename = "charts/pages.png",
 df_books3 <- df_books |> 
   mutate(book_age = year(today()) - year_published,
          y_axis = runif(as.numeric(nrow(df_books)))) |> 
-  filter(book_age <= 200)
+ filter(book_age <= 200)
 
 oldest_book <- df_books3 |>  
   filter(book_age == max(book_age)) |> 
@@ -262,85 +265,13 @@ ggsave(filename = "charts/ages.png",
   
 ```
 
-
-
-```{r pie chart}
-#| echo: false
-
-sos <- goodreads_library_export |> 
-  mutate(rating_group = factor(floor(`My Rating`), levels = 1:5))
-  
-  sos2 <- as.data.frame(table(sos$rating_group))
-  colnames(sos2) <- c("rating", "count")
-
-  sos2 <- sos2 %>%
-    arrange(desc(rating)) |> 
-    mutate(percentage = count / sum(count) * 100,  # Compute percentage
-           cumulative = cumsum(count) - (count)/2,
-           label = str_c(rating, " stars"))
-# Pie chart
-c<-ggplot(sos2, aes(x = 2, y = count, fill = rating)) +
-  geom_bar(stat = "identity", width = 1) +
-  coord_polar(theta = "y")+
-  scale_fill_manual(values = c("#DD7596", "#CF1259", "#710A31", "#B7C3F3", "#4F6272")) +  # Custom colors
-  labs(title = "Book Ratings Distribution", fill = "Star Rating") +
-  geom_text( x=2.75, aes(y=cumulative, label=label), size=6, color = "#404E5C") +
-  theme_void() +  # Remove axis lines, ticks, and background
-  theme(
-    plot.title = element_text(color = "#710A31", face = "italic", size = 18),
-    legend.position = "none"
-  )+
-  xlim(c(0.5, 2.5))  # Creates the hole in the center
-
-
-sos <- goodreads_library_export |> 
-  mutate(Binding = case_when(
-    Binding == "Paperback" | Binding == "Hardcover" ~ "Physical Copy",
-    TRUE ~ Binding)) |> 
-  arrange(desc(Binding)) |> 
-  group_by(Binding) |> 
-  mutate(count = n(),
-         label = case_when(
-           row_number() == 3 & Binding == "Kindle Edition" ~ Binding,
-           row_number() == 10 & Binding == "Physical Copy" ~ Binding,
-           TRUE ~ "")) 
-  
-
-
-b <- ggplot(sos, aes(x = 2, y = count, fill = reorder(Binding, count))) +
-  geom_bar(stat = "identity", width = 1) +
-  coord_polar(theta = "y") + # Turn into pie chart
-  xlim(c(0, 2.5)) + # Turn into donut chart
-  scale_fill_manual(values = c("#DD7596", "#CF1259")) +  # Custom colors
-  theme_void() +
-  theme(
-    plot.title = element_text(color = "#710A31", face = "italic", size = 18),
-    legend.position = "none") +
-  labs(title = "Book Medium") +
-  geom_text(
-    aes(label = label),
-    color = "#404E5C",
-    size = 6,
-    position = position_stack(vjust = 0.5))
-
-ggsave(filename = "charts/pie.png",
-       plot = b, # last_plot()
-       width = 4.5,
-       height = 4.5,
-       dpi = "retina",
-       limitsize = FALSE)
-
-#knitr::include_graphics("charts/bar.png")
-
-```
 ```{r gauge chart}
 #| echo: false
-
-
 
 fake_dat <- goodreads_library_export |> 
   mutate(Binding = case_when(
     Binding == "Paperback" | Binding == "Hardcover" ~ "Physical Copy",
+    Binding == "Mass Market Paperback" ~ "Kindle Edition", # I happen to know those 2 were kindle
     TRUE ~ Binding)) |> 
   group_by(Binding) |> 
   count() |> 
@@ -371,7 +302,7 @@ gauge_plot <- fake_dat |>
     label = glue::glue("Book medium
                        {round(fake_dat$percentage[which(fake_dat$Binding == 'Physical Copy')]*100, digits =0)}% Physical
                        {round(fake_dat$percentage[which(fake_dat$Binding == 'Kindle Edition')]*100, digits =0)}% Kindle"),
-    size = 5,
+    size = 7,
     color = "#710A31",
     vjust = 0
   ) +
@@ -385,7 +316,7 @@ gauge_plot <- fake_dat |>
 
 ggsave(filename = "charts/pie2.png",
        plot = gauge_plot, # last_plot()
-       width = 4.5,
+       width = 4.75,
        height = 3.5,
        dpi = "retina",
        limitsize = FALSE)
@@ -405,20 +336,20 @@ w <- df_books3.1 |>
   geom_bar(aes(fill = after_stat(count == 1)), stat = "count") +
   coord_flip() +
  geom_text(aes(label = author, y = 0.1),  # Place text at Y = 0
-            angle = 0, color = "#404E5C", size = 4, hjust = 0) +
-  scale_fill_manual(values = c("TRUE" = "#EEF0FC", "FALSE" = "#B7C3F3")) +
+            angle = 0, color = "#710A31", size = 4, hjust = 0) +
+  scale_fill_manual(values = c("TRUE" = "#EEF0FC", "FALSE" = "#FBEFF3")) +
   theme_minimal() +
   theme(
-    text = element_text(color = "#404E5C"),
+    text = element_text(color = "#710A31"),
     axis.ticks.y = element_blank(),  # Remove axis ticks
-    axis.ticks.x = element_line(color = "#404E5C"),  # Keep Y-axis tick marks
+    axis.ticks.x = element_line(color = "#710A31"),  # Keep Y-axis tick marks
     axis.text.y = element_blank(), # Remove y-axis text
     panel.grid = element_blank(),   # Remove grid lines
     panel.border = element_blank(),
     legend.position = "none",
     plot.title = element_text(face = "italic")) +  
   scale_y_continuous(breaks = range(df_books3.1$n_books)) +      # Show only min and max age on x-axis
-  labs(x=NULL,y=NULL, title = "Repeat Authors")
+  labs(x=NULL,y=NULL, title = "Repeat authors by number of books")
 
 ggsave(filename = "charts/bar.png",
        plot = w, # last_plot()
@@ -436,21 +367,23 @@ ggsave(filename = "charts/bar.png",
 
 :::: {.columns}
 
-::: {.column width="30%"}
-::: {style="text-align: center;"}
-`r paste0("![](", files[length(files)], "){width=1.25in}")` 
+::: {.column width="60%"}
+`r knitr::include_graphics("charts/bar.png")`
+:::
 
-`r knitr::include_graphics("charts/pie2.png")`
-:::
-:::
 
 ::: {.column width="10%"}
 <!-- empty column to create gap -->
 :::
 
-::: {.column width="60%"}
-`r knitr::include_graphics("charts/bar.png")`
+::: {.column width="30%"}
+::: {style="text-align: center;"}
+`r paste0("![](", files[1], "){width=1.25in}")` 
+
+`r knitr::include_graphics("charts/pie2.png")`
 :::
+:::
+
 
 ::::
 
@@ -472,9 +405,9 @@ c <- ggplot(soup, aes(total_pages, factor(year))) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
   theme_void() +
   theme(legend.position = "none", 
-        axis.text.y = element_text(color = "#404E5C", size = 40), 
+        axis.text.y = element_text(color = "#710A31", size = 40), 
         text = element_text(size = 38)) +
-  geom_vline(xintercept = 0, color = "black", linewidth = 1)
+  geom_vline(xintercept = 0, color = "#710A31", linewidth = 1)
 
 
 
@@ -566,50 +499,5 @@ ggsave(filename = "charts/heatmap.png",
 :::
 
 ::::
-
-## Reviews
-
-:::: {.columns}
-
-::: {.column width="25%"}
-![](images/6.jpg){width=1.5in}
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-
-`r goodreads_library_export |> clean_names() |> filter(title == "Wildwood Magic") |> pull(my_review)`
-:::
-
-::::
-<br>
-
-<!-- SET OF COLUMNS -->
-<!-- SET OF COLUMNS -->
-<!-- SET OF COLUMNS -->
-
-:::: {.columns}
-
-::: {.column width="25%"}
-
-`r goodreads_library_export |> clean_names() |> filter(title == "The Body in the Garden (Lily Adler Mystery, #1)") |> pull(my_review)`
-:::
-
-::: {.column width="10%"}
-<!-- empty column to create gap -->
-:::
-
-::: {.column width="25%"}
-![](images/15.jpg){width=1.5in}
-:::
-
-
-::::
-
-
-
 
 :::
