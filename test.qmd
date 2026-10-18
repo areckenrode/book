@@ -187,8 +187,8 @@ df_books2 <- df_books |>
     name == "The Cat Who Played Brahms" & type == "plot_pages" ~ 97,
     TRUE ~ value)) |> 
   mutate(label = case_when(
-    value == max(value) & type == "plot_pages" ~ paste0("Longest book - ", name, "\n", pages, " pages"),
-    value == min(value[value>0]) & type == "plot_pages" ~ paste0("Shortest book - ", name, "\n", pages, " pages"),
+    value == max(value) & type == "plot_pages" ~ paste0("Longest book\n", name, "\n", pages, " pages"),
+    value == min(value[value>0]) & type == "plot_pages" ~ paste0("Shortest book\n", name, "\n", pages, " pages"),
     TRUE ~ ""))
 
 x_labels <- df_books2 |> filter(type == "plot_pages") |> pull(label)
